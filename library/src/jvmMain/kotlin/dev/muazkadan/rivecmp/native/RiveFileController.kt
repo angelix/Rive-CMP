@@ -43,6 +43,13 @@ public class RiveFileController(
     public var artboard: Artboard = artboard
         private set
 
+    /**
+     * The view model instance bound by auto-binding, or null when auto-binding is off or the
+     * artboard has no default view model.
+     */
+    public var viewModelInstance: ViewModelInstance? = null
+        private set
+
     init {
         setArtboard()
     }
@@ -58,13 +65,21 @@ public class RiveFileController(
 
     private fun setArtboard() {
         if (autoBind) {
-            val defaultInstance = file.defaultViewModelForArtboard(artboard).createDefaultInstance()
-            artboard.viewModelInstance = defaultInstance
-            // Since state machines aren't created until play(),
-            // we need to check if they need to be created now.
-            (stateMachineName
-                ?: artboard.stateMachineNames.firstOrNull())?.let(::getOrCreateStateMachines)
-            stateMachines.forEach { it.viewModelInstance = defaultInstance }
+            val defaultInstance = try {
+                file.defaultViewModelForArtboard(artboard).createDefaultInstance()
+            } catch (e: ViewModelException) {
+                RiveLog.d(TAG, "Could not auto-bind artboard ${artboard.name}: ${e.message}")
+                null
+            }
+            viewModelInstance = defaultInstance
+            if (defaultInstance != null) {
+                artboard.viewModelInstance = defaultInstance
+                // Since state machines aren't created until play(),
+                // we need to check if they need to be created now.
+                (stateMachineName
+                    ?: artboard.stateMachineNames.firstOrNull())?.let(::getOrCreateStateMachines)
+                stateMachines.forEach { it.viewModelInstance = defaultInstance }
+            }
         }
         if (autoplay) {
             if (animationName != null) play(animationName)
@@ -194,6 +209,14 @@ public class RiveFileController(
         // stop will modify animations, so we cut a list of it first.
         if (animations.isNotEmpty()) animations.toList().forEach(::stop)
         if (stateMachines.isNotEmpty()) stateMachines.toList().forEach(::stop)
+    }
+
+    /**
+     * Plays the state machines again so a view model change made from code is applied on the next
+     * advance, even after they settled.
+     */
+    internal fun resumeStateMachines() {
+        stateMachines.toList().forEach { play(it, settleStateMachineState = false) }
     }
 
     /**
