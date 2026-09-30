@@ -46,6 +46,7 @@ actual fun CustomRiveAnimation(
     fit: RiveFit,
     stateMachineName: String?,
     overlay: Boolean,
+    onViewModelInstance: ((RiveViewModelInstance) -> Unit)?,
 ) {
     if (composition == null) return
 
@@ -86,6 +87,7 @@ actual fun CustomRiveAnimation(
     fit: RiveFit,
     stateMachineName: String?,
     overlay: Boolean,
+    onViewModelInstance: ((RiveViewModelInstance) -> Unit)?,
 ) {
     val composition by rememberRiveComposition(url) { RiveCompositionSpec.url(url) }
 
@@ -107,6 +109,7 @@ actual fun CustomRiveAnimation(
         fit = fit,
         stateMachineName = stateMachineName,
         overlay = overlay,
+        onViewModelInstance = onViewModelInstance,
     )
 }
 
@@ -121,6 +124,7 @@ actual fun CustomRiveAnimation(
     fit: RiveFit,
     stateMachineName: String?,
     overlay: Boolean,
+    onViewModelInstance: ((RiveViewModelInstance) -> Unit)?,
 ) {
     val composition by rememberRiveComposition(byteArray) { RiveCompositionSpec.byteArray(byteArray) }
 
@@ -139,6 +143,7 @@ actual fun CustomRiveAnimation(
         fit = fit,
         stateMachineName = stateMachineName,
         overlay = overlay,
+        onViewModelInstance = onViewModelInstance,
     )
 }
 

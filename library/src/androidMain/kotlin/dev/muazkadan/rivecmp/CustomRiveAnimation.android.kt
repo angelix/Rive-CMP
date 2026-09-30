@@ -20,7 +20,8 @@ actual fun CustomRiveAnimation(
     artboardName: String?,
     fit: RiveFit,
     stateMachineName: String?,
-    overlay: Boolean
+    overlay: Boolean,
+    onViewModelInstance: ((RiveViewModelInstance) -> Unit)?,
 ) {
     if (composition != null) {
         when (val spec = composition.spec) {
@@ -92,7 +93,8 @@ actual fun CustomRiveAnimation(
     artboardName: String?,
     fit: RiveFit,
     stateMachineName: String?,
-    overlay: Boolean
+    overlay: Boolean,
+    onViewModelInstance: ((RiveViewModelInstance) -> Unit)?,
 ) {
     AndroidView(
         modifier = modifier,
@@ -128,7 +130,8 @@ actual fun CustomRiveAnimation(
     artboardName: String?,
     fit: RiveFit,
     stateMachineName: String?,
-    overlay: Boolean
+    overlay: Boolean,
+    onViewModelInstance: ((RiveViewModelInstance) -> Unit)?,
 ) {
 
     AndroidView(

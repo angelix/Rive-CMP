@@ -6,6 +6,12 @@ import dev.muazkadan.rivecmp.core.RiveFit
 import dev.muazkadan.rivecmp.core.RiveAlignment
 import dev.muazkadan.rivecmp.utils.ExperimentalRiveCmpApi
 
+/**
+ * @param onViewModelInstance When set, the artboard's default view model instance is bound to the
+ * artboard and its state machine, and this is called on the main thread with it once the file has
+ * loaded. It is not called for a file without a view model, and is called again if the native view
+ * is recreated. Changing it between `null` and non-null recreates the native view.
+ */
 @ExperimentalRiveCmpApi
 @Composable
 expect fun CustomRiveAnimation(
@@ -17,6 +23,7 @@ expect fun CustomRiveAnimation(
     fit: RiveFit = RiveFit.CONTAIN,
     stateMachineName: String? = null,
     overlay: Boolean = true,
+    onViewModelInstance: ((RiveViewModelInstance) -> Unit)? = null,
 )
 
 @ExperimentalRiveCmpApi
@@ -30,6 +37,7 @@ expect fun CustomRiveAnimation(
     fit: RiveFit = RiveFit.CONTAIN,
     stateMachineName: String? = null,
     overlay: Boolean = true,
+    onViewModelInstance: ((RiveViewModelInstance) -> Unit)? = null,
 )
 
 @ExperimentalRiveCmpApi
@@ -43,4 +51,5 @@ expect fun CustomRiveAnimation(
     fit: RiveFit = RiveFit.CONTAIN,
     stateMachineName: String? = null,
     overlay: Boolean = true,
+    onViewModelInstance: ((RiveViewModelInstance) -> Unit)? = null,
 )

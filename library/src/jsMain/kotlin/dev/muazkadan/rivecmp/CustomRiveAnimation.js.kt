@@ -25,7 +25,8 @@ actual fun CustomRiveAnimation(
     artboardName: String?,
     fit: RiveFit,
     stateMachineName: String?,
-    overlay: Boolean
+    overlay: Boolean,
+    onViewModelInstance: ((RiveViewModelInstance) -> Unit)?,
 ) {
     if (composition == null) return
 
@@ -133,7 +134,8 @@ actual fun CustomRiveAnimation(
     artboardName: String?,
     fit: RiveFit,
     stateMachineName: String?,
-    overlay: Boolean
+    overlay: Boolean,
+    onViewModelInstance: ((RiveViewModelInstance) -> Unit)?,
 ) {
     val composition = rememberRiveComposition(url) {
         RiveCompositionSpec.url(url)
@@ -145,7 +147,9 @@ actual fun CustomRiveAnimation(
         autoPlay = autoPlay,
         artboardName = artboardName,
         fit = fit,
-        stateMachineName = stateMachineName
+        stateMachineName = stateMachineName,
+        overlay = overlay,
+        onViewModelInstance = onViewModelInstance,
     )
 }
 
@@ -159,7 +163,8 @@ actual fun CustomRiveAnimation(
     artboardName: String?,
     fit: RiveFit,
     stateMachineName: String?,
-    overlay: Boolean
+    overlay: Boolean,
+    onViewModelInstance: ((RiveViewModelInstance) -> Unit)?,
 ) {
     val composition = rememberRiveComposition(byteArray) {
         RiveCompositionSpec.byteArray(byteArray)
@@ -171,6 +176,8 @@ actual fun CustomRiveAnimation(
         autoPlay = autoPlay,
         artboardName = artboardName,
         fit = fit,
-        stateMachineName = stateMachineName
+        stateMachineName = stateMachineName,
+        overlay = overlay,
+        onViewModelInstance = onViewModelInstance,
     )
 }
