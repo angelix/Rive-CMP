@@ -4,7 +4,9 @@ package dev.muazkadan.rivecmp
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.WebElementView
@@ -31,6 +33,9 @@ actual fun CustomRiveAnimation(
     onViewModelInstance: ((RiveViewModelInstance) -> Unit)?,
 ) {
     if (composition == null) return
+
+    val currentOnViewModelInstance by rememberUpdatedState(onViewModelInstance)
+    val autoBind = onViewModelInstance != null
 
     val canvas = remember { document.createElement("canvas") as HTMLCanvasElement }
 
@@ -64,7 +69,7 @@ actual fun CustomRiveAnimation(
         RiveAlignment.BOTTOM_RIGHT -> "bottomRight"
     }
 
-    DisposableEffect(composition.spec, canvas, fit, alignment, autoPlay, artboardName, stateMachineName) {
+    DisposableEffect(composition.spec, canvas, fit, alignment, autoPlay, artboardName, stateMachineName, autoBind) {
         val layoutOptions = emptyRiveLayoutOptions().apply {
             this.fit = riveFit
             this.alignment = riveAlignment
@@ -75,6 +80,7 @@ actual fun CustomRiveAnimation(
             this.canvas = canvas
             this.autoplay = autoPlay
             this.layout = layout
+            this.autoBind = autoBind
 
             if (stateMachineName != null) {
                 this.stateMachines = stateMachineName
@@ -94,15 +100,21 @@ actual fun CustomRiveAnimation(
         }
 
         var r: Rive? = null
+        var boundInstance: WasmRiveViewModelInstance? = null
 
         options.onLoad = {
             r?.resizeDrawingSurfaceToCanvas()
+            val instance = r?.viewModelInstance
+            if (autoBind && instance != null) {
+                boundInstance = WasmRiveViewModelInstance(instance).also { currentOnViewModelInstance?.invoke(it) }
+            }
         }
 
         r = createRive(options)
         composition.connectToAnimationView(r)
 
         onDispose {
+            boundInstance?.release()
             composition.connectToAnimationView(null)
             r.stop()
             r.cleanup()

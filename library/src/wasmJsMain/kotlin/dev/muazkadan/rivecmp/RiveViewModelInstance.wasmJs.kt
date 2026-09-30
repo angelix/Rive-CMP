@@ -1,0 +1,103 @@
+/**
+ * wasm implementation of the view model instance API over @rive-app/canvas's ViewModelInstance.
+ * The runtime reports changes through callbacks, which feed the flows here.
+ */
+@file:OptIn(ExperimentalWasmJsInterop::class)
+
+package dev.muazkadan.rivecmp
+
+import dev.muazkadan.rivecmp.utils.ExperimentalRiveCmpApi
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+
+@OptIn(ExperimentalRiveCmpApi::class)
+internal class WasmRiveViewModelInstance(private val instance: RiveViewModelInstanceJs) : RiveViewModelInstance {
+
+    private val releases = mutableListOf<() -> Unit>()
+
+    override fun number(path: String): RiveProperty<Float>? = property(
+        instance.number(path),
+        read = { (it as JsNumber).toDouble().toFloat() },
+        write = { it.toDouble().toJsNumber() },
+    )
+
+    override fun string(path: String): RiveProperty<String>? = property(
+        instance.string(path),
+        read = { (it as JsString).toString() },
+        write = { it.toJsString() },
+    )
+
+    override fun boolean(path: String): RiveProperty<Boolean>? = property(
+        instance.boolean(path),
+        read = { (it as JsBoolean).toBoolean() },
+        write = { it.toJsBoolean() },
+    )
+
+    override fun color(path: String): RiveProperty<Int>? = property(
+        instance.color(path),
+        read = { (it as JsNumber).toInt() },
+        write = { it.toJsNumber() },
+    )
+
+    override fun enum(path: String): RiveProperty<String>? = property(
+        instance.enum(path),
+        read = { (it as JsString).toString() },
+        write = { it.toJsString() },
+    )
+
+    override fun trigger(path: String): RiveTrigger? {
+        val property = instance.trigger(path) ?: return null
+        releases += { property.off() }
+        return WasmRiveTrigger(property)
+    }
+
+    private fun <T> property(property: RiveValueJs?, read: (JsAny?) -> T, write: (T) -> JsAny?): RiveProperty<T>? {
+        if (property == null) return null
+        releases += { property.off() }
+        return WasmRiveProperty(property, read, write)
+    }
+
+    /** Removes the callbacks registered on the runtime's properties. */
+    fun release() {
+        releases.forEach { it() }
+        releases.clear()
+    }
+}
+
+@OptIn(ExperimentalRiveCmpApi::class)
+private class WasmRiveProperty<T>(
+    private val property: RiveValueJs,
+    private val read: (JsAny?) -> T,
+    private val write: (T) -> JsAny?,
+) : RiveProperty<T> {
+    private val flow = MutableStateFlow(read(property.value))
+
+    init {
+        property.on { newValue -> flow.value = read(newValue) }
+    }
+
+    override var value: T
+        get() = read(property.value)
+        set(value) {
+            property.value = write(value)
+            flow.value = value
+        }
+
+    override val valueFlow: StateFlow<T> get() = flow
+}
+
+@OptIn(ExperimentalRiveCmpApi::class)
+private class WasmRiveTrigger(private val property: RiveTriggerJs) : RiveTrigger {
+    private val flow = MutableSharedFlow<Unit>(extraBufferCapacity = 16, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    init {
+        property.on { flow.tryEmit(Unit) }
+    }
+
+    override fun trigger() = property.trigger()
+
+    override val triggers: Flow<Unit> get() = flow
+}
