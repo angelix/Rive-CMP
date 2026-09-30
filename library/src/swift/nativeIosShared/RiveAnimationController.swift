@@ -10,6 +10,13 @@ import RiveRuntime
     private var riveView: RiveView?
     private var pendingConfiguration: (url: String, autoPlay: Bool, artboardName: String?, stateMachineName: String?, fit: RiveFit, alignment: RiveAlignment)?
 
+    /// Set before `setAnimationItem` to auto-bind the artboard's default view model instance.
+    /// Called with each instance rive-ios binds.
+    public var onViewModelInstance: ((RiveDataBindingViewModel.Instance) -> Void)?
+
+    /// Keeps the bound instance alive; rive-ios hands it over without retaining it for callers.
+    private var boundViewModelInstance: RiveDataBindingViewModel.Instance?
+
     override init() {
         super.init()
     }
@@ -38,6 +45,8 @@ import RiveRuntime
             loadCdn: false,
             artboardName: artboardName
         )
+
+        enableAutoBindIfRequested()
 
         // If view was already requested, create it now
         if riveView == nil {
@@ -90,12 +99,22 @@ import RiveRuntime
                 )
             }
 
+            enableAutoBindIfRequested()
+
             // If view was already requested, create it now
             if riveView == nil {
                 createRiveViewIfNeeded()
             }
         } catch {
             print("RiveAnimationController: ERROR - Failed to create RiveFile from data: \(error)")
+        }
+    }
+
+    private func enableAutoBindIfRequested() {
+        guard onViewModelInstance != nil else { return }
+        viewModel?.riveModel?.enableAutoBind { [weak self] instance in
+            self?.boundViewModelInstance = instance
+            self?.onViewModelInstance?(instance)
         }
     }
 
@@ -142,6 +161,8 @@ import RiveRuntime
             riveView?.removeFromSuperview()
         }
         riveView = nil
+        viewModel?.riveModel?.disableAutoBind()
+        boundViewModelInstance = nil
         viewModel = nil
         pendingConfiguration = nil
     }
