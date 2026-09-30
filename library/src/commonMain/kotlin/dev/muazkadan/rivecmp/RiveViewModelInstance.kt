@@ -42,6 +42,9 @@ interface RiveTrigger {
     /** Fires the trigger. */
     fun trigger()
 
-    /** Emits each time the trigger fires, whether the graphic fired it or [trigger] did. */
+    /**
+     * Emits each time the graphic fires the trigger. Whether a call to [trigger] is reported as
+     * well depends on the platform's runtime, so do not rely on it to count your own calls.
+     */
     val triggers: Flow<Unit>
 }

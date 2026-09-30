@@ -144,8 +144,11 @@ public class RiveFileController(
         // no-op advance.
         if (elapsed > 0.0) stateMachinesToPause.forEach { pause(stateMachine = it) }
 
-        // Poll the assigned view model instances for changes.
-        playingStateMachines.mapNotNull(StateMachineInstance::viewModelInstance)
+        // Poll the assigned view model instances for changes. A state machine that settled in this
+        // advance was just paused, so poll every state machine's instance and the auto-bound one,
+        // not only those still playing; otherwise a change made while idle is never reported.
+        (stateMachines.mapNotNull(StateMachineInstance::viewModelInstance) + listOfNotNull(viewModelInstance))
+            .distinct()
             .forEach(ViewModelInstance::pollChanges)
     }
 

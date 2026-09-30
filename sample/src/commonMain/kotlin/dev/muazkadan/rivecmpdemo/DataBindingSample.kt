@@ -25,7 +25,7 @@ import dev.muazkadan.rivecmp.rememberRiveComposition
 import dev.muazkadan.rivecmp.utils.ExperimentalRiveCmpApi
 import rivecmp.sample.generated.resources.Res
 
-/** Shows a data-bound graphic, counts the times it fires its trigger, and lets the user fire it. */
+/** Shows a data-bound graphic, counts the trigger firings it reports, and lets the user fire it. */
 @OptIn(ExperimentalRiveCmpApi::class)
 @Composable
 fun DataBindingSample(modifier: Modifier = Modifier) {
@@ -51,7 +51,8 @@ fun DataBindingSample(modifier: Modifier = Modifier) {
             onViewModelInstance = { trigger = it.trigger("trigger") },
         )
         Text(
-            text = if (trigger == null) "Not bound" else "Trigger fired $firings times",
+            modifier = Modifier.weight(1f),
+            text = if (trigger == null) "Not bound" else "Trigger reported $firings times",
             color = Color.White,
         )
         Button(onClick = { trigger?.trigger() }, enabled = trigger != null) {

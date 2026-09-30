@@ -103,6 +103,36 @@ class CustomRiveAnimationDataBindingTest {
     }
 
     @Test
+    fun firingFromCodeAfterTheGraphicWentIdleReachesTheFlow() = runComposeUiTest {
+        RiveDesktop.init()
+        mainClock.autoAdvance = false
+        val received = mutableListOf<RiveViewModelInstance>()
+        val scope = CoroutineScope(Dispatchers.Unconfined)
+        var firings = 0
+
+        setContent {
+            CustomRiveAnimation(
+                modifier = Modifier.size(100.dp).testTag(TAG),
+                byteArray = bound,
+                stateMachineName = "State Machine 1",
+                onViewModelInstance = { received += it },
+            )
+        }
+        awaitAnimation()
+        val trigger = assertNotNull(received.single().trigger("trigger"))
+        scope.launch { trigger.triggers.collect { firings++ } }
+        // About 10 s of frames: the graphic fires once by itself and then stops animating.
+        repeat(600) { mainClock.advanceTimeByFrame() }
+        val firingsWhileIdle = firings
+
+        trigger.trigger()
+        repeat(5) { mainClock.advanceTimeByFrame() }
+        scope.cancel()
+
+        assertEquals(firingsWhileIdle + 1, firings, "Expected the trigger fired while idle to reach the flow")
+    }
+
+    @Test
     fun aFileWithoutAViewModelPlaysAndNeverCallsBack() = runComposeUiTest {
         RiveDesktop.init()
         mainClock.autoAdvance = false
@@ -236,6 +266,42 @@ class CustomRiveAnimationDataBindingTest {
         repeat(5) { mainClock.advanceTimeByFrame() }
         scope.cancel()
         assertTrue(firings >= 1, "Expected the instance bound after reset to be live, got $firings firings")
+    }
+
+    @Test
+    fun aTriggerFiredWhileIdleReachesTheFlow() {
+        RiveDesktop.init()
+        val file = File(bound)
+        val scope = CoroutineScope(Dispatchers.Unconfined)
+        try {
+            val controller = RiveFileController(
+                autoplay = true,
+                autoBind = true,
+                stateMachineName = "State Machine 1",
+                file = file,
+                fit = Fit.CONTAIN,
+            )
+            val instance = DesktopRiveViewModelInstance(
+                assertNotNull(controller.viewModelInstance),
+                controller::resumeStateMachines,
+            )
+            val trigger = assertNotNull(instance.trigger("trigger"))
+            var firings = 0
+            scope.launch { trigger.triggers.collect { firings++ } }
+            // Advance well past the point where the state machine stops animating.
+            repeat(600) { controller.advance(1f / 60) }
+            assertFalse(controller.isAdvancing, "Expected the state machine to have settled")
+            val firingsWhileIdle = firings
+
+            trigger.trigger()
+            repeat(5) { controller.advance(1f / 60) }
+
+            assertEquals(firingsWhileIdle + 1, firings, "Expected the trigger fired while idle to reach the flow")
+            controller.dispose()
+        } finally {
+            scope.cancel()
+            file.release()
+        }
     }
 
     @Test
