@@ -31,36 +31,36 @@ internal class IosRiveViewModelInstance(
 
     override fun number(path: String): RiveProperty<Float>? {
         val property = instance.numberPropertyFromPath(path) ?: return null
-        val flow = MutableStateFlow(property.value)
+        val flow = MutableStateFlow(property.value())
         val listener = property.addListener { flow.value = it }
         releases += { property.removeListener(listener) }
-        return IosRiveProperty(flow, read = { property.value }, write = { property.value = it })
+        return IosRiveProperty(flow, read = { property.value() }, write = { property.setValue(it) })
     }
 
     override fun string(path: String): RiveProperty<String>? {
         val property = instance.stringPropertyFromPath(path) ?: return null
-        val flow = MutableStateFlow(property.value)
+        val flow = MutableStateFlow(property.value())
         val listener = property.addListener { flow.value = it.orEmpty() }
         releases += { property.removeListener(listener) }
-        return IosRiveProperty(flow, read = { property.value }, write = { property.value = it })
+        return IosRiveProperty(flow, read = { property.value() }, write = { property.setValue(it) })
     }
 
     override fun boolean(path: String): RiveProperty<Boolean>? {
         val property = instance.booleanPropertyFromPath(path) ?: return null
-        val flow = MutableStateFlow(property.value)
+        val flow = MutableStateFlow(property.value())
         val listener = property.addListener { flow.value = it }
         releases += { property.removeListener(listener) }
-        return IosRiveProperty(flow, read = { property.value }, write = { property.value = it })
+        return IosRiveProperty(flow, read = { property.value() }, write = { property.setValue(it) })
     }
 
     override fun color(path: String): RiveProperty<Int>? {
         val property = instance.colorPropertyFromPath(path) ?: return null
-        val flow = MutableStateFlow(property.value.toArgb())
+        val flow = MutableStateFlow(property.value().toArgb())
         val listener = property.addListener { color -> color?.let { flow.value = it.toArgb() } }
         releases += { property.removeListener(listener) }
         return IosRiveProperty(
             flow,
-            read = { property.value.toArgb() },
+            read = { property.value().toArgb() },
             write = { argb ->
                 property.setRed(
                     red = ((argb shr 16) and 0xFF) / 255.0,
@@ -74,10 +74,10 @@ internal class IosRiveViewModelInstance(
 
     override fun enum(path: String): RiveProperty<String>? {
         val property = instance.enumPropertyFromPath(path) ?: return null
-        val flow = MutableStateFlow(property.value)
+        val flow = MutableStateFlow(property.value())
         val listener = property.addListener { flow.value = it.orEmpty() }
         releases += { property.removeListener(listener) }
-        return IosRiveProperty(flow, read = { property.value }, write = { property.value = it })
+        return IosRiveProperty(flow, read = { property.value() }, write = { property.setValue(it) })
     }
 
     override fun trigger(path: String): RiveTrigger? {

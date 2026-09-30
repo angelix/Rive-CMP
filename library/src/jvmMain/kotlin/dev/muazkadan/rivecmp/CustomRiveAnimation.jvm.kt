@@ -3,8 +3,10 @@ package dev.muazkadan.rivecmp
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
@@ -50,10 +52,14 @@ actual fun CustomRiveAnimation(
 ) {
     if (composition == null) return
 
+    val currentOnViewModelInstance by rememberUpdatedState(onViewModelInstance)
+    val autoBind = onViewModelInstance != null
+
     val controller =
-        remember(composition, alignment, autoPlay, artboardName, fit, stateMachineName) {
+        remember(composition, alignment, autoPlay, artboardName, fit, stateMachineName, autoBind) {
             RiveFileController(
                 autoplay = autoPlay,
+                autoBind = autoBind,
                 stateMachineName = stateMachineName,
                 file = composition.file,
                 artboard = artboardName?.let(composition.file::artboard)
@@ -71,6 +77,13 @@ actual fun CustomRiveAnimation(
             composition.connectToAnimationView(null)
             controller.dispose()
         }
+    }
+
+    LaunchedEffect(controller) {
+        val instance = controller.viewModelInstance ?: return@LaunchedEffect
+        currentOnViewModelInstance?.invoke(
+            DesktopRiveViewModelInstance(instance, controller::resumeStateMachines),
+        )
     }
 
     Spacer(modifier.then(RiveRendererElement(controller, overlay)))
