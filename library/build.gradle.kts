@@ -120,7 +120,8 @@ kotlin {
 mavenPublishing {
     publishToMavenCentral()
 
-    signAllPublications()
+    // JitPack builds without the release signing key
+    if (providers.environmentVariable("JITPACK").orNull != "true") signAllPublications()
 
     // groupId and version come from GROUP / VERSION_NAME in gradle.properties
         coordinates(artifactId = "rive-cmp")

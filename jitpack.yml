@@ -1,0 +1,7 @@
+# JitPack build of this branch for JVM and Android consumers: publishes the Kotlin Multiplatform
+# root, jvm and android variants of rive-cmp and the macOS arm64 desktop runtime, unsigned, under
+# JitPack's com.github.angelix.Rive-CMP group with the requested version.
+jdk:
+  - openjdk21
+install:
+  - ./gradlew -PGROUP=com.github.angelix.Rive-CMP -PVERSION_NAME=$VERSION :library:publishKotlinMultiplatformPublicationToMavenLocal :library:publishJvmPublicationToMavenLocal :library:publishAndroidPublicationToMavenLocal :runtime-macos-arm64:publishMavenPublicationToMavenLocal
