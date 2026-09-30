@@ -29,7 +29,7 @@ actual fun CustomRiveAnimation(
 ) {
     if (composition != null) {
         var riveView by remember { mutableStateOf<RiveAnimationView?>(null) }
-        BindViewModelInstance(riveView, onViewModelInstance)
+        BindViewModelInstance(riveView, composition, onViewModelInstance)
 
         when (val spec = composition.spec) {
             is RiveUrlCompositionSpec -> {
@@ -106,7 +106,7 @@ actual fun CustomRiveAnimation(
     onViewModelInstance: ((RiveViewModelInstance) -> Unit)?,
 ) {
     var riveView by remember { mutableStateOf<RiveAnimationView?>(null) }
-    BindViewModelInstance(riveView, onViewModelInstance)
+    BindViewModelInstance(riveView, null, onViewModelInstance)
 
     AndroidView(
         modifier = modifier,
@@ -147,7 +147,7 @@ actual fun CustomRiveAnimation(
     onViewModelInstance: ((RiveViewModelInstance) -> Unit)?,
 ) {
     var riveView by remember { mutableStateOf<RiveAnimationView?>(null) }
-    BindViewModelInstance(riveView, onViewModelInstance)
+    BindViewModelInstance(riveView, null, onViewModelInstance)
 
     AndroidView(
         modifier = modifier,

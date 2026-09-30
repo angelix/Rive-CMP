@@ -1,6 +1,7 @@
 /**
  * wasm implementation of the view model instance API over @rive-app/canvas's ViewModelInstance.
- * The runtime reports changes through callbacks, which feed the flows here.
+ * The runtime reports changes through callbacks, which feed the flows here. Each property is wrapped
+ * once per path, so looking it up again registers no further callback.
  */
 @file:OptIn(ExperimentalWasmJsInterop::class)
 
@@ -17,41 +18,60 @@ import kotlinx.coroutines.flow.StateFlow
 internal class WasmRiveViewModelInstance(private val instance: RiveViewModelInstanceJs) : RiveViewModelInstance {
 
     private val releases = mutableListOf<() -> Unit>()
+    private val adapters = mutableMapOf<String, Any>()
 
-    override fun number(path: String): RiveProperty<Float>? = property(
-        instance.number(path),
-        read = { (it as JsNumber).toDouble().toFloat() },
-        write = { it.toDouble().toJsNumber() },
-    )
+    override fun number(path: String): RiveProperty<Float>? = cached("number", path) {
+        property(
+            instance.number(path),
+            read = { (it as JsNumber).toDouble().toFloat() },
+            write = { it.toDouble().toJsNumber() },
+        )
+    }
 
-    override fun string(path: String): RiveProperty<String>? = property(
-        instance.string(path),
-        read = { (it as JsString).toString() },
-        write = { it.toJsString() },
-    )
+    override fun string(path: String): RiveProperty<String>? = cached("string", path) {
+        property(
+            instance.string(path),
+            read = { (it as JsString).toString() },
+            write = { it.toJsString() },
+        )
+    }
 
-    override fun boolean(path: String): RiveProperty<Boolean>? = property(
-        instance.boolean(path),
-        read = { (it as JsBoolean).toBoolean() },
-        write = { it.toJsBoolean() },
-    )
+    override fun boolean(path: String): RiveProperty<Boolean>? = cached("boolean", path) {
+        property(
+            instance.boolean(path),
+            read = { (it as JsBoolean).toBoolean() },
+            write = { it.toJsBoolean() },
+        )
+    }
 
-    override fun color(path: String): RiveProperty<Int>? = property(
-        instance.color(path),
-        read = { (it as JsNumber).toInt() },
-        write = { it.toJsNumber() },
-    )
+    override fun color(path: String): RiveProperty<Int>? = cached("color", path) {
+        property(
+            instance.color(path),
+            read = { (it as JsNumber).toInt() },
+            write = { it.toJsNumber() },
+        )
+    }
 
-    override fun enum(path: String): RiveProperty<String>? = property(
-        instance.enum(path),
-        read = { (it as JsString).toString() },
-        write = { it.toJsString() },
-    )
+    override fun enum(path: String): RiveProperty<String>? = cached("enum", path) {
+        property(
+            instance.enum(path),
+            read = { (it as JsString).toString() },
+            write = { it.toJsString() },
+        )
+    }
 
-    override fun trigger(path: String): RiveTrigger? {
-        val property = instance.trigger(path) ?: return null
-        releases += { property.off() }
-        return WasmRiveTrigger(property)
+    override fun trigger(path: String): RiveTrigger? = cached("trigger", path) {
+        instance.trigger(path)?.let { property ->
+            releases += { property.off() }
+            WasmRiveTrigger(property)
+        }
+    }
+
+    /** The adapter already made for this kind of property at [path], or a new one from [create]. */
+    @Suppress("UNCHECKED_CAST")
+    private fun <A : Any> cached(kind: String, path: String, create: () -> A?): A? {
+        val key = "$kind:$path"
+        return (adapters[key] as A?) ?: create()?.also { adapters[key] = it }
     }
 
     private fun <T> property(property: RiveValueJs?, read: (JsAny?) -> T, write: (T) -> JsAny?): RiveProperty<T>? {
@@ -64,6 +84,7 @@ internal class WasmRiveViewModelInstance(private val instance: RiveViewModelInst
     fun release() {
         releases.forEach { it() }
         releases.clear()
+        adapters.clear()
     }
 }
 

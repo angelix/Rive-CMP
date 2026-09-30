@@ -204,6 +204,76 @@ class CustomRiveAnimationDataBindingTest {
         }
     }
 
+    @Test
+    fun resettingTheCompositionCallsBackWithAFreshInstance() = runComposeUiTest {
+        RiveDesktop.init()
+        mainClock.autoAdvance = false
+        val received = mutableListOf<RiveViewModelInstance>()
+        var composition: RiveComposition? = null
+        val scope = CoroutineScope(Dispatchers.Unconfined)
+        var firings = 0
+
+        setContent {
+            val loaded by rememberRiveComposition { RiveCompositionSpec.byteArray(bound) }
+            composition = loaded
+            CustomRiveAnimation(
+                modifier = Modifier.size(100.dp).testTag(TAG),
+                composition = loaded,
+                stateMachineName = "State Machine 1",
+                onViewModelInstance = { received += it },
+            )
+        }
+        awaitAnimation()
+        assertEquals(1, received.size)
+
+        assertNotNull(composition).reset()
+        repeat(5) { mainClock.advanceTimeByFrame() }
+
+        assertEquals(2, received.size, "Expected reset to call back again")
+        val trigger = assertNotNull(received.last().trigger("trigger"))
+        scope.launch { trigger.triggers.collect { firings++ } }
+        trigger.trigger()
+        repeat(5) { mainClock.advanceTimeByFrame() }
+        scope.cancel()
+        assertTrue(firings >= 1, "Expected the instance bound after reset to be live, got $firings firings")
+    }
+
+    @Test
+    fun aStateMachineRecreatedAfterStopStaysBound() {
+        RiveDesktop.init()
+        val file = File(bound)
+        val scope = CoroutineScope(Dispatchers.Unconfined)
+        try {
+            val controller = RiveFileController(
+                autoplay = true,
+                autoBind = true,
+                stateMachineName = "State Machine 1",
+                file = file,
+                fit = Fit.CONTAIN,
+            )
+            val instance = DesktopRiveViewModelInstance(
+                assertNotNull(controller.viewModelInstance),
+                controller::resumeStateMachines,
+            )
+            val trigger = assertNotNull(instance.trigger("trigger"))
+            var firings = 0
+            scope.launch { trigger.triggers.collect { firings++ } }
+
+            controller.stopAnimations()
+            controller.play("State Machine 1", isStateMachine = true)
+            repeat(5) { controller.advance(1f / 60) }
+            val firingsBefore = firings
+            trigger.trigger()
+            repeat(5) { controller.advance(1f / 60) }
+
+            assertTrue(firings > firingsBefore, "Expected a trigger fired after stop and play to reach the flow")
+            controller.dispose()
+        } finally {
+            scope.cancel()
+            file.release()
+        }
+    }
+
     private companion object {
         const val TAG = "rive"
     }

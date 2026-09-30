@@ -105,21 +105,32 @@ actual fun CustomRiveAnimation(
         var boundInstance: JsRiveViewModelInstance? = null
 
         // Add onLoad callback to ensure the drawing surface matches the canvas size
+        // Hands the instance the runtime currently has bound to the callback.
+        val deliverBoundInstance = {
+            boundInstance?.release()
+            val instance = r?.viewModelInstance
+            boundInstance = if (autoBind && instance != null) {
+                JsRiveViewModelInstance(instance).also { currentOnViewModelInstance?.invoke(it) }
+            } else {
+                null
+            }
+        }
+
         options.onLoad = {
             r?.resizeDrawingSurfaceToCanvas()
-            val instance = r?.viewModelInstance
-            if (autoBind && instance != null) {
-                boundInstance = JsRiveViewModelInstance(instance).also { currentOnViewModelInstance?.invoke(it) }
-            }
+            deliverBoundInstance()
         }
 
         r = RiveSDK.Rive(options)
 
         // Connect composition to this instance
         composition.connectToAnimationView(r)
+        composition.autoBind = autoBind
+        composition.afterReset = deliverBoundInstance
 
         onDispose {
             boundInstance?.release()
+            composition.afterReset = null
             // Disconnect composition first to prevent calls on cleaned-up instance
             composition.connectToAnimationView(null)
             r.stop()

@@ -1,6 +1,7 @@
 /**
  * JS implementation of the view model instance API over @rive-app/canvas's ViewModelInstance.
- * The runtime reports changes through callbacks, which feed the flows here.
+ * The runtime reports changes through callbacks, which feed the flows here. Each property is wrapped
+ * once per path, so looking it up again registers no further callback.
  */
 package dev.muazkadan.rivecmp
 
@@ -15,26 +16,31 @@ import kotlinx.coroutines.flow.StateFlow
 internal class JsRiveViewModelInstance(private val instance: dynamic) : RiveViewModelInstance {
 
     private val observed = mutableListOf<dynamic>()
+    private val adapters = mutableMapOf<String, Any>()
 
-    override fun number(path: String): RiveProperty<Float>? =
+    override fun number(path: String): RiveProperty<Float>? = cached("number", path) {
         property(instance.number(path), read = { (it as Number).toFloat() }, write = { it })
+    }
 
-    override fun string(path: String): RiveProperty<String>? =
+    override fun string(path: String): RiveProperty<String>? = cached("string", path) {
         property(instance.string(path), read = { it as String }, write = { it })
+    }
 
-    override fun boolean(path: String): RiveProperty<Boolean>? =
+    override fun boolean(path: String): RiveProperty<Boolean>? = cached("boolean", path) {
         property(instance.boolean(path), read = { it as Boolean }, write = { it })
+    }
 
-    override fun color(path: String): RiveProperty<Int>? =
+    override fun color(path: String): RiveProperty<Int>? = cached("color", path) {
         property(instance.color(path), read = { (it as Number).toInt() }, write = { it })
+    }
 
-    override fun enum(path: String): RiveProperty<String>? =
+    override fun enum(path: String): RiveProperty<String>? = cached("enum", path) {
         property(instance.enum(path), read = { it as String }, write = { it })
+    }
 
-    override fun trigger(path: String): RiveTrigger? {
-        val property = instance.trigger(path) ?: return null
-        observed.add(property)
-        return JsRiveTrigger(property)
+    override fun trigger(path: String): RiveTrigger? = cached("trigger", path) {
+        val property = instance.trigger(path)
+        if (property == null) null else JsRiveTrigger(property).also { observed.add(property) }
     }
 
     private fun <T> property(property: dynamic, read: (dynamic) -> T, write: (T) -> dynamic): RiveProperty<T>? {
@@ -43,10 +49,18 @@ internal class JsRiveViewModelInstance(private val instance: dynamic) : RiveView
         return JsRiveProperty(property, read, write)
     }
 
+    /** The adapter already made for this kind of property at [path], or a new one from [create]. */
+    @Suppress("UNCHECKED_CAST")
+    private fun <A : Any> cached(kind: String, path: String, create: () -> A?): A? {
+        val key = "$kind:$path"
+        return (adapters[key] as A?) ?: create()?.also { adapters[key] = it }
+    }
+
     /** Removes the callbacks registered on the runtime's properties. */
     fun release() {
         observed.forEach { it.off() }
         observed.clear()
+        adapters.clear()
     }
 }
 

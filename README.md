@@ -343,7 +343,8 @@ LaunchedEffect(rating) {
   `trigger` are supported. Nested view models are reached with a path such as `"card/title"`.
 - A lookup returns `null` when the path does not exist or names a property of another type.
 - The callback is not called for a file without a view model.
-- The instance is valid while the animation is in the composition.
+- The instance is valid while the animation is in the composition. `composition.reset()` binds a new
+  instance and calls the callback again; take the properties from that one.
 
 ## Requirements
 

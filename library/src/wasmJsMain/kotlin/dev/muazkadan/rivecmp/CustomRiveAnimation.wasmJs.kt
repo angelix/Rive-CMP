@@ -102,19 +102,30 @@ actual fun CustomRiveAnimation(
         var r: Rive? = null
         var boundInstance: WasmRiveViewModelInstance? = null
 
+        // Hands the instance the runtime currently has bound to the callback.
+        val deliverBoundInstance = {
+            boundInstance?.release()
+            val instance = r?.viewModelInstance
+            boundInstance = if (autoBind && instance != null) {
+                WasmRiveViewModelInstance(instance).also { currentOnViewModelInstance?.invoke(it) }
+            } else {
+                null
+            }
+        }
+
         options.onLoad = {
             r?.resizeDrawingSurfaceToCanvas()
-            val instance = r?.viewModelInstance
-            if (autoBind && instance != null) {
-                boundInstance = WasmRiveViewModelInstance(instance).also { currentOnViewModelInstance?.invoke(it) }
-            }
+            deliverBoundInstance()
         }
 
         r = createRive(options)
         composition.connectToAnimationView(r)
+        composition.autoBind = autoBind
+        composition.afterReset = deliverBoundInstance
 
         onDispose {
             boundInstance?.release()
+            composition.afterReset = null
             composition.connectToAnimationView(null)
             r.stop()
             r.cleanup()

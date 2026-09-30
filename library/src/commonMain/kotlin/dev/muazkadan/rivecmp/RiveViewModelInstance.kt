@@ -9,7 +9,8 @@ import kotlinx.coroutines.flow.StateFlow
  * example `"rating"`, or `"card/title"` for a property of a nested view model.
  *
  * Every lookup returns `null` when the path does not exist or names a property of another type.
- * The instance and its properties are valid while the animation is in the composition.
+ * The instance and its properties are valid while the animation is in the composition and until
+ * the binding is replaced. After that, lookups return `null` and writes have no effect.
  */
 @ExperimentalRiveCmpApi
 interface RiveViewModelInstance {
@@ -41,6 +42,6 @@ interface RiveTrigger {
     /** Fires the trigger. */
     fun trigger()
 
-    /** Emits each time the graphic fires the trigger. */
+    /** Emits each time the trigger fires, whether the graphic fired it or [trigger] did. */
     val triggers: Flow<Unit>
 }

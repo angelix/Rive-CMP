@@ -250,7 +250,8 @@ actual fun CustomRiveAnimation(
 /**
  * Asks [controller] to auto-bind and hand each bound instance to [onViewModelInstance], keeping it
  * in [bound] so its listeners can be released. Must run before the controller is given its
- * animation.
+ * animation. The controller calls back on a later turn of the main run loop, never during
+ * composition.
  */
 @OptIn(ExperimentalForeignApi::class, ExperimentalRiveCmpApi::class)
 private fun bindViewModelInstance(
@@ -260,7 +261,11 @@ private fun bindViewModelInstance(
 ) {
     controller.setOnViewModelInstance { instance ->
         if (instance != null) {
-            IosRiveViewModelInstance(instance).also { bound += it }.let(onViewModelInstance)
+            // A new instance replaces the one bound before, for example after a reset.
+            bound.releaseAll()
+            IosRiveViewModelInstance(instance, onWrite = { controller.resumePlayback() })
+                .also { bound += it }
+                .let(onViewModelInstance)
         }
     }
 }

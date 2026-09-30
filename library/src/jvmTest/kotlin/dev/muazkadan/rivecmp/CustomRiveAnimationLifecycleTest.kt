@@ -10,8 +10,10 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.dp
+import dev.muazkadan.rivecmp.native.File
 import dev.muazkadan.rivecmp.utils.ExperimentalRiveCmpApi
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 /**
  * Loads and then removes the CustomRiveAnimation overload that owns its composition, which must
@@ -30,6 +32,8 @@ class CustomRiveAnimationLifecycleTest {
         // The view requests a frame every frame, so it never goes idle on its own
         mainClock.autoAdvance = false
         var shown by mutableStateOf(true)
+        // Every loaded File holds one reference on the shared asset loader until it is released
+        val loaderReferences = File.defaultAssetLoader.refCount
 
         setContent {
             if (shown) {
@@ -40,10 +44,21 @@ class CustomRiveAnimationLifecycleTest {
             mainClock.advanceTimeByFrame()
             onAllNodesWithTag(TAG).fetchSemanticsNodes().isNotEmpty()
         }
+        repeat(3) { mainClock.advanceTimeByFrame() }
+        assertEquals(
+            loaderReferences + 1,
+            File.defaultAssetLoader.refCount,
+            "Expected the file to stay loaded while its animation is shown",
+        )
 
         shown = false
         mainClock.advanceTimeByFrame()
         waitForIdle()
+        assertEquals(
+            loaderReferences,
+            File.defaultAssetLoader.refCount,
+            "Expected the file to be released with its animation",
+        )
     }
 
     private companion object {

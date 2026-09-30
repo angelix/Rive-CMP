@@ -50,6 +50,12 @@ public class RiveFileController(
     public var viewModelInstance: ViewModelInstance? = null
         private set
 
+    /**
+     * Called with the instance each time auto-binding binds one after construction, which happens
+     * when the artboard is instanced again by [selectArtboard].
+     */
+    public var onViewModelInstanceBound: ((ViewModelInstance) -> Unit)? = null
+
     init {
         setArtboard()
     }
@@ -79,6 +85,7 @@ public class RiveFileController(
                 (stateMachineName
                     ?: artboard.stateMachineNames.firstOrNull())?.let(::getOrCreateStateMachines)
                 stateMachines.forEach { it.viewModelInstance = defaultInstance }
+                onViewModelInstanceBound?.invoke(defaultInstance)
             }
         }
         if (autoplay) {
@@ -313,6 +320,9 @@ public class RiveFileController(
         val stateMachineInstances = stateMachines(animationName)
         return stateMachineInstances.ifEmpty {
             val stateMachineInstance = artboard.stateMachine(animationName)
+            // A state machine created after binding, for example when playing again after a stop,
+            // observes the same view model instance as the artboard.
+            viewModelInstance?.let { stateMachineInstance.viewModelInstance = it }
             stateMachines.add(stateMachineInstance)
             listOf(stateMachineInstance)
         }
