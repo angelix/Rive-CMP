@@ -1,0 +1,24 @@
+name: Compile iOS (fork only)
+
+# Compiles the iOS targets, Swift bridge included, because the pinned Swift package does not build
+# on the newest Xcode. Runs only when this branch is pushed.
+on:
+  push:
+    branches: [ci/ios-compile]
+
+jobs:
+  compile:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Report the active toolchain
+        run: |
+          xcodebuild -version
+          xcrun --show-sdk-version
+      - name: Compile the iOS targets
+        run: ./gradlew :library:compileKotlinIosSimulatorArm64 :library:compileKotlinIosArm64 --stacktrace
