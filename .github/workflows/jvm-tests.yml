@@ -40,7 +40,8 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 24
+          # The newest long-term-support release Temurin builds for Windows arm64 as well
+          java-version: 21
 
       - uses: gradle/actions/setup-gradle@v4
 

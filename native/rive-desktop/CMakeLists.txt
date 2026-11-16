@@ -244,17 +244,7 @@ if (APPLE)
             "-framework Foundation"
             "-framework AppKit"
     )
-elseif (WIN32)
-    # The Rive renderer's Direct3D backends, which librive's scripting bindings
-    # reference
-    target_link_libraries(rive-desktop
-            d3d11
-            d3d12
-            dxgi
-            dxguid
-            d3dcompiler
-    )
-else ()
+elseif (NOT WIN32)
     target_link_options(rive-desktop PRIVATE
             # The static libs reference each other in both directions, which a
             # linker that reads them once, in order, cannot resolve. The group
