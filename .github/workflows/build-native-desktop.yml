@@ -27,13 +27,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS 14 runners are arm64 and ship an older Xcode/SDK. The Skia checkout
-          # pinned by rive-runtime vendors a zlib whose `#define fdopen(fd,mode) NULL`
-          # breaks against the macOS 15.5 SDK's own fdopen declaration, so the newer
-          # image cannot build it. The x64 library is cross-compiled there for the same
-          # reason, and tested under Rosetta.
-          - { os: macos, arch: arm64, runner: macos-14, library: librive-desktoparm64.dylib, tested: true }
-          - { os: macos, arch: x64, runner: macos-14, library: librive-desktopx64.dylib, tested: true }
+          - { os: macos, arch: arm64, runner: macos-26, library: librive-desktoparm64.dylib, tested: true }
+          - { os: macos, arch: x64, runner: macos-26-intel, library: librive-desktopx64.dylib, tested: true }
           - { os: linux, arch: x64, runner: ubuntu-22.04, library: librive-desktopx64.so, tested: true }
           - { os: linux, arch: arm64, runner: ubuntu-22.04-arm, library: librive-desktoparm64.so, tested: true }
           - { os: windows, arch: x64, runner: windows-2022, library: librive-desktopx64.dll, tested: true }
@@ -50,6 +45,9 @@ jobs:
       # Where Skia's build output lands, named the way CMakeLists.txt looks for it
       SKIA_OUT: ${{ matrix.os == 'macos' && 'macosx' || matrix.os }}/${{ matrix.arch }}
       COMMITTED_LIBRARY: runtime-${{ matrix.os }}-${{ matrix.arch }}/src/main/resources/${{ matrix.library }}
+      # The oldest macOS the library is built for, which is rive-runtime's own. Without it
+      # Skia would be compiled for the macOS version of whatever SDK the runner has.
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
 
     steps:
       - uses: actions/checkout@v4
@@ -64,11 +62,9 @@ jobs:
         with:
           distribution: temurin
           java-version: 24
-          # The x64 macOS library is tested by an x64 JVM running under Rosetta
-          architecture: ${{ matrix.os == 'macos' && matrix.arch == 'x64' && 'x64' || '' }}
 
+      # The Skia and Rive build scripts call `python`, which not every runner has
       - uses: actions/setup-python@v5
-        if: matrix.os != 'macos'
         with:
           python-version: "3.11"
 
@@ -87,7 +83,11 @@ jobs:
 
       - name: Install native build tools (macOS)
         if: matrix.os == 'macos'
-        run: brew install ninja premake
+        run: |
+          brew install ninja premake
+          # The Rive renderer's shader build compiles Metal shaders, and Xcode 26 and
+          # later leave the Metal compiler to a separate download
+          xcrun -sdk macosx metal --version || xcodebuild -downloadComponent MetalToolchain
 
       - name: Install native build tools (Linux)
         if: matrix.os == 'linux'
@@ -110,14 +110,14 @@ jobs:
 
       - name: Restore a previous Skia build
         id: skia-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             ${{ env.SKIA_DIR }}/include
             ${{ env.SKIA_DIR }}/out/${{ env.SKIA_OUT }}
           key: skia-1-${{ matrix.os }}-${{ matrix.arch }}-${{ hashFiles('native/rive-desktop/make_skia.sh') }}
 
-      - name: Match the Skia flags the shipped binary was built with
+      - name: Patch the Skia build flags
         if: matrix.os == 'macos' && steps.skia-cache.outputs.cache-hit != 'true'
         working-directory: submodules/rive-runtime/skia/dependencies
         run: |
@@ -131,6 +131,15 @@ jobs:
           sed -i.bak -E '/\\"-fembed-bitcode\\"|\\"-flto=full\\"|\\"-DRIVE_OPTIMIZED\\"/d' make_skia_macos.sh
           if grep -qE '\\"-flto=full\\"' make_skia_macos.sh; then
             echo "::error::flag patch did not apply"; exit 1
+          fi
+          # The Skia this pins is from 2022, and two libraries it vendors take Classic
+          # Mac OS code paths once a current macOS SDK defines TARGET_OS_MAC for them:
+          # zlib defines fdopen away, which then mangles the SDK's own declaration of
+          # it, and libpng includes <fp.h>, which no longer exists. Defining fdopen as
+          # itself and including <math.h> first keeps both off those paths.
+          perl -pi -e 's/^(\s*)(\\"-fno-rtti\\",)/$1$2 \\"-Dfdopen=fdopen\\", \\"-include\\", \\"math.h\\",/' make_skia_macos.sh
+          if ! grep -qE '\\"-Dfdopen=fdopen\\", \\"-include\\", \\"math.h\\",' make_skia_macos.sh; then
+            echo "::error::SDK flag patch did not apply"; exit 1
           fi
           echo "--- SHARED_EXTRA_CFLAGS after patch ---"
           sed -n '/SHARED_EXTRA_CFLAGS=/,/^    "$/p' make_skia_macos.sh
@@ -150,6 +159,15 @@ jobs:
         if: matrix.os != 'macos' && steps.skia-cache.outputs.cache-hit != 'true'
         run: native/rive-desktop/make_skia.sh ${{ matrix.arch }}
 
+      - name: Save the Skia build
+        if: steps.skia-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.SKIA_DIR }}/include
+            ${{ env.SKIA_DIR }}/out/${{ env.SKIA_OUT }}
+          key: ${{ steps.skia-cache.outputs.cache-primary-key }}
+
       - name: Show the Skia build
         run: |
           ls -lh "$SKIA_DIR/out/$SKIA_OUT"/*skia.*
@@ -159,8 +177,7 @@ jobs:
       - name: Configure
         run: |
           case "${{ matrix.os }}-${{ matrix.arch }}" in
-            macos-arm64) PLATFORM_ARGS=() ;;
-            macos-x64) PLATFORM_ARGS=(-DCMAKE_OSX_ARCHITECTURES=x86_64) ;;
+            macos-*) PLATFORM_ARGS=() ;;
             linux-*) PLATFORM_ARGS=(-G Ninja -DCMAKE_CXX_COMPILER=clang++) ;;
             windows-x64) PLATFORM_ARGS=(-G Ninja -DCMAKE_CXX_COMPILER=clang++) ;;
             windows-arm64)
