@@ -3,16 +3,17 @@
 # Builds the Skia static library the JNI bridge links against, for Linux and
 # Windows. rive-runtime ships a script that does this for macOS
 # (skia/dependencies/make_skia_macos.sh) but none for these two, so this one
-# fetches the same Skia checkout through rive-runtime's get_skia2.sh and builds
-# it with the feature set of the macOS script, minus the macOS backends.
+# checks out the same Skia and builds it with the feature set of the macOS
+# script, minus the macOS backends.
 #
 #   make_skia.sh <x64|arm64>
 #
 # The library lands where CMakeLists.txt looks for it:
 #   submodules/rive-runtime/skia/dependencies/skia/out/<linux|windows>/<arch>/
 #
-# Needs git, python, ninja and clang. On Windows, run it from Git Bash; it uses
-# the LLVM in C:\Program Files\LLVM unless CLANG_WIN names another one.
+# Needs git, curl, unzip, python3, ninja and clang. On Windows, run it from Git
+# Bash; it uses the LLVM in C:\Program Files\LLVM unless CLANG_WIN names
+# another one.
 
 set -euo pipefail
 
@@ -28,9 +29,29 @@ esac
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RIVE_RUNTIME_DIR="${RIVE_RUNTIME_DIR:-$SCRIPT_DIR/../../submodules/rive-runtime}"
 
+SKIA_REPO="https://github.com/rive-app/skia"
+# The tip of its "rive" branch, which is what make_skia_macos.sh builds
+SKIA_COMMIT="355e333200d874be47b2edb80c1c3be166c3c046"
+
+# Checks one commit of a repository out into a directory, without its history.
+#   checkout <directory> <repository> <commit>
+checkout() {
+    [ -d "$1/.git" ] || git init -q "$1"
+    git -C "$1" fetch -q --depth 1 "$2" "$3"
+    git -C "$1" checkout -q FETCH_HEAD
+}
+
 case "$(uname -s)" in
     Linux*)
         OS=linux
+        case "$(uname -m)" in
+            x86_64) GN_HOST=linux-amd64 ;;
+            aarch64) GN_HOST=linux-arm64 ;;
+            *)
+                echo "No gn build for a $(uname -m) host" >&2
+                exit 1
+                ;;
+        esac
         # Fonts and windowing are the embedding application's business: the
         # bridge only rasterizes paths and images into a caller's buffer.
         PLATFORM_ARGS='
@@ -41,6 +62,8 @@ case "$(uname -s)" in
         ;;
     MINGW* | MSYS*)
         OS=windows
+        # Also what an arm64 host runs, emulated
+        GN_HOST=windows-amd64
         CLANG_WIN="${CLANG_WIN:-C:/Program Files/LLVM}"
         # Skia's raster pipeline is only vectorized when built with clang.
         # Its build looks the clang version up as an x.y.z directory, which
@@ -61,12 +84,26 @@ case "$(uname -s)" in
 esac
 
 cd "$RIVE_RUNTIME_DIR/skia/dependencies"
+checkout skia "$SKIA_REPO" "$SKIA_COMMIT"
+cd skia
 
-# Clones rive-app/skia into ./skia and syncs its third-party sources
-source ./get_skia2.sh
-getSkia
+# Skia's own tools/git-sync-deps fetches every optional dependency, with its
+# whole history. The library is built from these alone, at the revisions Skia's
+# DEPS file pins.
+for DEPENDENCY in libgifcodec libjpeg-turbo libpng libwebp zlib; do
+    PIN="$(sed -n -E "s|.*\"third_party/externals/$DEPENDENCY\" *: *\"([^\"]+)\".*|\1|p" DEPS)"
+    checkout "third_party/externals/$DEPENDENCY" "${PIN%@*}" "${PIN#*@}"
+done
 
-cd "$SKIA_DIR_NAME"
+# gn, at the revision Skia's bin/fetch-gn pins. That script does not know arm64
+# Linux hosts, although there is a build for them.
+GN_REVISION="$(sed -n -E "s/^ *rev = '([0-9a-f]+)'.*/\1/p" bin/fetch-gn)"
+curl -fsSL -o gn.zip \
+    "https://chrome-infra-packages.appspot.com/dl/gn/gn/$GN_HOST/+/git_revision:$GN_REVISION"
+unzip -o -q gn.zip -x '.cipdpkg/*' -d bin
+rm gn.zip
+chmod +x bin/gn*
+
 OUT="out/$OS/$ARCH"
 
 # The defines are the ones CMakeLists.txt gives the bridge: they change the

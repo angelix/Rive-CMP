@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.18.1)
 
+# The oldest macOS the library loads on, which is the one rive-runtime builds
+# its static libs for. Left unset, it would be the macOS version of whatever
+# SDK the library happened to be built with.
+set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version")
+
 project(rive-desktop VERSION 1.0.0 LANGUAGES CXX)
 
 # Compile detail will be in rive-desktop/kotlin/.cxx/Debug/<hash>/<ABI>/compile_commands.json
@@ -151,23 +156,16 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Release" OR
 endif ()
 
 # Translate CMake processor ABI to Rive architecture
-# On macOS the target architecture is chosen with CMAKE_OSX_ARCHITECTURES, which
-# leaves CMAKE_SYSTEM_PROCESSOR naming the host.
-if (APPLE AND CMAKE_OSX_ARCHITECTURES)
-    set(TARGET_PROCESSOR "${CMAKE_OSX_ARCHITECTURES}")
-else ()
-    set(TARGET_PROCESSOR "${CMAKE_SYSTEM_PROCESSOR}")
-endif ()
-if (TARGET_PROCESSOR MATCHES "x86_64" OR TARGET_PROCESSOR MATCHES "AMD64")
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64")
     set(RIVE_ARCH "x64")
-elseif (TARGET_PROCESSOR MATCHES "i[3-6]86")
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "i[3-6]86")
     set(RIVE_ARCH "x86")
-elseif (TARGET_PROCESSOR MATCHES "arm64" OR TARGET_PROCESSOR MATCHES "ARM64" OR TARGET_PROCESSOR MATCHES "aarch64")
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "arm64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
     set(RIVE_ARCH "arm64")
-elseif (TARGET_PROCESSOR MATCHES "arm")
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "arm")
     set(RIVE_ARCH "arm")
 else ()
-    message(FATAL_ERROR "Unsupported architecture: ${TARGET_PROCESSOR}")
+    message(FATAL_ERROR "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}")
 endif ()
 
 # The Kotlin loader looks for lib<name><arch>.<ext> on every platform, so keep
