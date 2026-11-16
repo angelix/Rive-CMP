@@ -48,6 +48,8 @@ jobs:
       # The oldest macOS the library is built for, which is rive-runtime's own. Without it
       # Skia would be compiled for the macOS version of whatever SDK the runner has.
       MACOSX_DEPLOYMENT_TARGET: "11.0"
+      # macOS has no sha256sum, and Git Bash on Windows no shasum
+      SHA256: ${{ matrix.os == 'macos' && 'shasum -a 256' || 'sha256sum' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -206,7 +208,7 @@ jobs:
           BIN=$(find native/rive-desktop/build -name '${{ matrix.library }}' | head -1)
           echo "Built: $BIN"
           test -n "$BIN"
-          shasum -a 256 "$BIN" | tee built.sha256
+          $SHA256 "$BIN" | tee built.sha256
           echo "path=$BIN" >> "$GITHUB_OUTPUT"
 
       - name: Show what the binary needs from the system
@@ -233,7 +235,7 @@ jobs:
         run: |
           # A mismatch here means the pinned commit or the bridge changed without the
           # binary and its checksum in native/rive-desktop/README.md being updated.
-          COMMITTED=$(git show "HEAD:$COMMITTED_LIBRARY" | shasum -a 256 | cut -d' ' -f1)
+          COMMITTED=$(git show "HEAD:$COMMITTED_LIBRARY" | $SHA256 | cut -d' ' -f1)
           BUILT=$(cut -d' ' -f1 < built.sha256)
           echo "committed: $COMMITTED"
           echo "built:     $BUILT"
