@@ -34,3 +34,10 @@ do
     buildoptions({ '--target=aarch64-pc-windows-msvc' })
 end
 filter({})
+
+-- Without link-time optimization Premake archives with plain `ar`, which on
+-- Windows is MinGW's and cannot index the arm64 objects clang produces: the
+-- linker then finds none of their symbols. LLVM's own archiver can.
+if os.target() == 'windows' then
+    premake.tools.clang.tools.ar = 'llvm-ar'
+end

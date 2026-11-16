@@ -27,7 +27,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: macos, arch: arm64, runner: macos-26, library: librive-desktoparm64.dylib, tested: true }
+          - { os: macos, arch: arm64, runner: macos-15, library: librive-desktoparm64.dylib, tested: true }
           - { os: macos, arch: x64, runner: macos-26-intel, library: librive-desktopx64.dylib, tested: true }
           - { os: linux, arch: x64, runner: ubuntu-22.04, library: librive-desktopx64.so, tested: true }
           - { os: linux, arch: arm64, runner: ubuntu-22.04-arm, library: librive-desktoparm64.so, tested: true }

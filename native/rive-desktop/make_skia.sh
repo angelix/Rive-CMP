@@ -68,12 +68,16 @@ case "$(uname -s)" in
         # Skia's raster pipeline is only vectorized when built with clang.
         # Its build looks the clang version up as an x.y.z directory, which
         # LLVM stopped using, so name the directory for it.
+        # rive_use_picture builds Skia's picture recorder: the trimmed Skia
+        # still refers to it from code nothing calls, which other linkers drop
+        # but this one wants resolved.
         PLATFORM_ARGS='
             clang_win="'"$CLANG_WIN"'"
             clang_win_version="'"$(ls "$CLANG_WIN/lib/clang" | sort -V | tail -n 1)"'"
             skia_enable_fontmgr_win=false
             skia_enable_fontmgr_win_gdi=false
             skia_use_xps=false
+            rive_use_picture=true
         '
         ;;
     *)
