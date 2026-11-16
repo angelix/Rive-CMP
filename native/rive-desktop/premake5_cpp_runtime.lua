@@ -25,3 +25,12 @@ do
         'luau_vm',
     })
 end
+
+-- rive-runtime's build scripts take the host's architecture for granted on
+-- Windows, so an arm64 build has to name its target itself.
+workspace('rive')
+filter({ 'system:windows', 'options:arch=arm64' })
+do
+    buildoptions({ '--target=aarch64-pc-windows-msvc' })
+end
+filter({})
